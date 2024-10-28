@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>16000 chars</title>
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="funny char grid thingy">
+  <meta property="og:description" content="80x200 text box synced all over the world">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: monospace;
+      background: teal;
+    }
+
+    header {
+      text-align: center;
+      font-family: Comic Sans MS, sans-serif;
+      color: white;
+      padding: 1em;
+    }
+
+    header h1 {
+      text-shadow: 2px 2px 4px #000000;
+    }
+
+    main {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin: 0;
+    }
+
+    @font-face {
+      font-family: 'MVM Sans';
+      src: url('mvm.ttf') format('truetype');
+      font-weight: normal;
+      font-style: monospace;
+    }
+
+    #grid {
+      display: grid;
+      grid-template-columns: repeat(80, 20px);
+      grid-template-rows: repeat(200, 20px);
+      gap: 2px 2px;
+      margin-top: 1em;
+      padding: 1em;
+    }
+
+    input {
+      width: 20px;
+      height: 20px;
+      text-align: center;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      font-family: "MVM Sans", monospace, "Noto Color Emoji";
+    }
+
+    input:focus {
+      outline: none;
+    }
+
+    .no-border input {
+      border: none;
+    }
+
+    .activeClientsDiv {
+      margin-top: 20px;
+      color: white;
+    }
+
+    #activeClients {
+      font-weight: bold;
+      margin-left: 5px;
+    }
+
+    .controls {
+      grid-column: 1 / -1;
+      display: flex;
+      color: white;
+      gap: 5px;
+      position: fixed;
+      top: 0;
+      left: 0;
+      align-items: center;
+      background-color: teal;
+      padding: 5px;
+      width: 100%;
+    }
+
+    .controls-r {
+      right: 0;
+      left: unset;
+      width: unset;
+    }
+
+    .controls input[type=color] {
+      border: 0;
+      padding: 0px;
+      margin: 0px;
+    }
+
+    .controls input[type=checkbox] {
+      margin: 0;
+      height: 20px;
+    }
+
+    .controls button {
+      border: 0;
+    }
+
+    @media (max-width: 800px) {
+      #grid {
+        overflow: auto;
+        max-width: 100%;
+      }
+
+      .controls-r {
+        bottom: 0;
+        left: 0;
+        top: unset;
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>16000 chars</h1>
+    <p>The 80x200 grid consisting of 16000 input boxes on this site is synced in real-time. Create something cool :3</p>
+    <p><a href="/index.js">index.js</a></p>
+  </header>
+  <main class="activeClientsDiv">
+    People online: <span id="activeClients">0</span>
+  </main>
+  <main>
+    <div id="grid">
+      <div class="controls">
+        <input type="checkbox" id="stuck">Keep cursor in place</input>
+        <input type="checkbox" id="border">Disable borders</input>
+      </div>
+      <div class="controls controls-r">
+        <button for="color" id="setColorBtn">Color (Ctrl+1)</button>
+        <input type="color" id="color" />
+        <button for="color" id="setBgColorBtn">Background (Ctrl+2)</button>
+        <input type="color" id="bgcolor" />
+        <button id="resetColorBtn">Reset (Ctrl+3)</button>
+      </div>
+    </div>
+  </main>
+  <script>
+    const gridWidth = 80;
+    const gridHeight = 200;
+    const gridContainer = document.getElementById('grid');
+    const totalFields = gridWidth * gridHeight;
+    const stuck = document.getElementById("stuck");
+    const color = document.getElementById("color");
+    const bgcolor = document.getElementById("bgcolor");
+    let activeClients = document.getElementById("activeClients");
+    let inputs = [];
+    let activeInput = -1;
+
+
+
+    let ws = new WebSocket(`ws${window.location.protocol === 'https:' ? 's' : ''}://${location.host}`);
+    ws.onopen = () => {
+      console.log('WebSocket connection opened.');
+    };
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.action === 'full') {
+        for (let i = 0; i < totalFields; i++) {
+          inputs[i].value = data.fields[i] || '';
+          inputs[i].style.color = data.colors[i] || '';
+          inputs[i].style.backgroundColor = data.bgcolors[i] || '';
+        }
+      } else if (data.action === 'set') {
+        inputs[data.index].value = data.char;
+      } else if (data.action === 'activeClients') {
+        activeClients.innerText = data.number;
+      } else if (data.action === 'color') {
+        inputs[data.index].style.color = data.value;
+      } else if (data.action === 'bgcolor') {
+        inputs[data.index].style.backgroundColor = data.value;
+      }
+    };
+
+    ws.onclose = () => {
+      console.log('WebSocket connection closed.');
+    };
+
+    const sendUpdate = (index, char) => {
+      ws.send(JSON.stringify({action: 'set', index: index, char: char}));
+    };
+
+    for (let i = 0; i < totalFields; i++) {
+      const y = Math.floor(i / gridWidth);
+      const x = i - (gridWidth * y);
+
+      const input = document.createElement('input');
+      input.addEventListener('focus', (e) => {
+        activeInput = i;
+        e.target.select();
+      });
+      input.setAttribute("x", x);
+      input.setAttribute("y", y);
+      input.addEventListener('input', (e) => {
+        if (e.target.value.length === 0) {
+          if (i > 0) {
+            if (stuck.checked) {
+              inputs[i].select();
+            } else {
+              inputs[i - 1].focus();
+              inputs[i - 1].select();
+            }
+
+          }
+        }
+
+        const len = [...new Intl.Segmenter().segment(e.target.value)].length
+        if (!(len <= 1)) {
+          e.target.value = e.target.value.slice(-1);
+        }
+        const char = e.target.value;
+        sendUpdate(i, char);
+        if (stuck.checked) {
+          inputs[i].select();
+        } else {
+          if (i + 1 < totalFields) {
+            inputs[i + 1].focus();
+            inputs[i + 1].select();
+          }
+        }
+      });
+
+      gridContainer.appendChild(input);
+      inputs.push(input);
+    }
+
+    ws.addEventListener('close', () => {
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    });
+
+    // arrow actions
+    window.addEventListener('keydown', (e) => {
+      const activeElement = document.activeElement;
+      const index = inputs.indexOf(activeElement);
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        if (index + 1 < totalFields) {
+          inputs[index + 1].focus();
+          inputs[index + 1].select();
+        }
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        if (index - 1 >= 0) {
+          inputs[index - 1].focus();
+          inputs[index - 1].select();
+        }
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (index + gridWidth < totalFields) {
+          inputs[index + gridWidth].focus();
+          inputs[index + gridWidth].select();
+        }
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (index - gridWidth >= 0) {
+          inputs[index - gridWidth].focus();
+          inputs[index - gridWidth].select();
+        }
+      } else if (e.key === 'Backspace') {
+        e.preventDefault();
+        inputs[index].value = '';
+        if (stuck.checked) {
+          input[index].select();
+        } else {
+          if (index > 0) {
+            inputs[index - 1].focus();
+            inputs[index - 1].select();
+            sendUpdate(index, '');
+          }
+        }
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        // go to beginning of next row
+        if (index + gridWidth < totalFields) {
+          inputs[index + gridWidth - index % gridWidth].focus();
+          inputs[index + gridWidth - index % gridWidth].select();
+        }
+      } else if (e.key === 'Home') {
+        e.preventDefault();
+        // start of current row
+        inputs[index - index % gridWidth].focus();
+        inputs[index - index % gridWidth].select();
+
+      } else if (e.key === 'End') {
+        e.preventDefault();
+        inputs[index + gridWidth - index % gridWidth - 1].focus();
+        inputs[index + gridWidth - index % gridWidth - 1].select();
+      } else if ((e.ctrlKey || e.metaKey) && e.key === '1') {
+        // set fg color
+        e.preventDefault();
+        if (e.shiftKey) {
+          color.click()
+        } else {
+          setColor();
+        }
+      } else if ((e.ctrlKey || e.metaKey) && e.key === '2') {
+        // set bg color
+        e.preventDefault();
+        if (e.shiftKey) {
+          bgcolor.click();
+        } else {
+          setBgColor();
+        }
+      } else if ((e.ctrlKey || e.metaKey) && e.key === '3') {
+        // reset color
+        e.preventDefault();
+        resetColor();
+      }
+
+    });
+
+
+    const borderCheckbox = document.getElementById('border');
+    function toggleBorder() {
+      if (borderCheckbox.checked) {
+        gridContainer.classList.add('no-border');
+      } else {
+        gridContainer.classList.remove('no-border');
+      }
+    }
+    window.addEventListener('load', toggleBorder);
+    borderCheckbox.addEventListener('change', toggleBorder);
+
+
+    const setBgColor = () => {
+      ws.send(JSON.stringify({action: "bgcolor", index: activeInput, value: bgcolor.value}))
+      inputs[activeInput].focus();
+    }
+    const setColor = () => {
+      ws.send(JSON.stringify({action: "color", index: activeInput, value: color.value}))
+      inputs[activeInput].focus();
+    }
+    const resetColor = () => {
+      ws.send(JSON.stringify({action: "color", index: activeInput, value: 'black'}))
+      ws.send(JSON.stringify({action: "bgcolor", index: activeInput, value: 'white'}))
+      inputs[activeInput].focus();
+    }
+    document.getElementById("setBgColorBtn").addEventListener('click', setBgColor);
+    document.getElementById("setColorBtn").addEventListener('click', setColor);
+    document.getElementById("resetColorBtn").addEventListener('click', resetColor);
+
+
+  </script>
+</body>
+
+</html>
